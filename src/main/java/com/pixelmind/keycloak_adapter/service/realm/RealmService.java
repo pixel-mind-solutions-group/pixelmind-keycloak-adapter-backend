@@ -7,4 +7,6 @@ import com.pixelmind.keycloak_adapter.enums.PersistType;
 public interface RealmService {
 
     CommonResponseDTO realm(PersistType persistType, RealmRequestDTO realmRequest);
+
+    CommonResponseDTO getActiveRealmsWithClients();
 }

@@ -21,4 +21,9 @@ public class RealmController {
 
         return ResponseEntity.ok(realmService.realm(persistType, realmRequest));
     }
+
+    @GetMapping(value = "/active")
+    public ResponseEntity<CommonResponseDTO> getActiveRealmsWithClients() {
+        return ResponseEntity.ok(realmService.getActiveRealmsWithClients());
+    }
 }

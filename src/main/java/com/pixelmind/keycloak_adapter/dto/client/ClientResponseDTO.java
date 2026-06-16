@@ -1,5 +1,6 @@
 package com.pixelmind.keycloak_adapter.dto.client;
 
+import com.pixelmind.keycloak_adapter.dto.realm.RealmResponseDTO;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -10,4 +11,5 @@ public class ClientResponseDTO {
     private String name;
     private String description;
     private boolean active;
+    private RealmResponseDTO realm;
 }

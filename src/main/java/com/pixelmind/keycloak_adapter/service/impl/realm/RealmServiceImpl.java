@@ -5,6 +5,7 @@ import com.pixelmind.keycloak_adapter.dto.CommonResponseDTO;
 import com.pixelmind.keycloak_adapter.dto.realm.RealmRequestDTO;
 import com.pixelmind.keycloak_adapter.enums.PersistType;
 import com.pixelmind.keycloak_adapter.exception.BaseException;
+import com.pixelmind.keycloak_adapter.mapper.realm.RealmMapper;
 import com.pixelmind.keycloak_adapter.service.realm.RealmService;
 import jakarta.ws.rs.ClientErrorException;
 import lombok.RequiredArgsConstructor;
@@ -14,11 +15,15 @@ import org.keycloak.representations.idm.RealmRepresentation;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class RealmServiceImpl implements RealmService {
 
     private final Keycloak keycloak;
+    private final RealmMapper realmMapper;
 
     @Override
     public CommonResponseDTO realm(PersistType persistType,
@@ -124,5 +129,37 @@ public class RealmServiceImpl implements RealmService {
         return keycloak.realms().findAll()
                 .stream()
                 .anyMatch(r -> r.getRealm().equalsIgnoreCase(realmName));
+    }
+
+    @Override
+    public CommonResponseDTO getActiveRealmsWithClients() {
+
+        try {
+
+            List<RealmRepresentation> activeRealms = keycloak.realms().findAll().stream()
+                    .filter(realmRepresentation -> realmRepresentation.isEnabled())
+                    .collect(Collectors.toList());
+
+            if (activeRealms.isEmpty()) {
+                return new CommonResponseDTO(
+                        HttpStatus.NO_CONTENT.value(),
+                        List.of(),
+                        "No realms found"
+                );
+            }
+
+            return new CommonResponseDTO(
+                    HttpStatus.OK.value(),
+                    realmMapper.toRealmResponseDTOs(activeRealms),
+                    "Active realms with clients retrieved successfully"
+            );
+
+        } catch (Exception e) {
+            return new CommonResponseDTO(
+                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    null,
+                    "Unexpected error: " + e.getMessage()
+            );
+        }
     }
 }
