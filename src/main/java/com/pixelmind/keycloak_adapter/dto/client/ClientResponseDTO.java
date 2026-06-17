@@ -8,6 +8,7 @@ import lombok.Setter;
 @Setter
 public class ClientResponseDTO {
     private String id;
+    private String clientId;
     private String name;
     private String description;
     private boolean active;

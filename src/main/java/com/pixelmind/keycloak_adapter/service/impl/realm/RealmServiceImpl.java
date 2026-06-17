@@ -11,10 +11,12 @@ import jakarta.ws.rs.ClientErrorException;
 import lombok.RequiredArgsConstructor;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.RealmResource;
+import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.RealmRepresentation;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -148,6 +150,18 @@ public class RealmServiceImpl implements RealmService {
                 );
             }
 
+            for (RealmRepresentation realm : activeRealms) {
+                try {
+                    List<ClientRepresentation> clients = keycloak
+                            .realm(realm.getRealm())
+                            .clients()
+                            .findAll();
+                    realm.setClients(clients);
+                } catch (Exception e) {
+                    realm.setClients(Collections.emptyList());
+                }
+            }
+
             return new CommonResponseDTO(
                     HttpStatus.OK.value(),
                     realmMapper.toRealmResponseDTOs(activeRealms),
@@ -155,9 +169,8 @@ public class RealmServiceImpl implements RealmService {
             );
 
         } catch (Exception e) {
-            return new CommonResponseDTO(
+            throw new BaseException(
                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    null,
                     "Unexpected error: " + e.getMessage()
             );
         }

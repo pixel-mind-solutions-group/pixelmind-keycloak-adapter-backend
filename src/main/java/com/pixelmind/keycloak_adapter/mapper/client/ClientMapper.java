@@ -12,7 +12,8 @@ public class ClientMapper {
 
     public ClientResponseDTO toClientResponseDTO(ClientRepresentation client) {
         ClientResponseDTO dto = new ClientResponseDTO();
-        dto.setId(client.getClientId());
+        dto.setId(client.getId());
+        dto.setClientId(client.getClientId());
         dto.setName(client.getName());
         dto.setDescription(client.getDescription());
         dto.setActive(client.isEnabled());
