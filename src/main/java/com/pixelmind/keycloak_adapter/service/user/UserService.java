@@ -18,4 +18,6 @@ public interface UserService {
     CommonResponseDTO deleteCredential(String realmName, String userId);
 
     CommonResponseDTO assignClientRoles(PermissionRequest permissionRequest);
+
+    CommonResponseDTO deleteUser(String realmName, String username);
 }

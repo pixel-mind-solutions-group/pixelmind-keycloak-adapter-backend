@@ -6,11 +6,13 @@ import com.pixelmind.keycloak_adapter.dto.user.credential.CredentialRequestDTO;
 import com.pixelmind.keycloak_adapter.dto.user.permission.PermissionRequest;
 import com.pixelmind.keycloak_adapter.service.user.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RequiredArgsConstructor
 @RestController
 @RequestMapping(value = "/api/keycloak-adapter/user")
@@ -21,12 +23,14 @@ public class UserController {
     @PostMapping(value = "/create")
     public ResponseEntity<CommonResponseDTO> createUser(@RequestParam(value = "realmName") String realmName,
                                                         @RequestBody UserRequestDTO user) {
+        log.info("REST Request - createUser: realmName={}, username={}", realmName, user.getUsername());
         return ResponseEntity.ok(userService.createUser(realmName, user));
     }
 
     @PostMapping(value = "/sync")
     public ResponseEntity<CommonResponseDTO> syncUser(@RequestParam(value = "realmName") String realmName,
                                                       @RequestBody UserRequestDTO user) {
+        log.info("REST Request - syncUser: realmName={}, username={}", realmName, user.getUsername());
         return ResponseEntity.ok(userService.syncUser(realmName, user));
     }
 
@@ -34,11 +38,14 @@ public class UserController {
     public ResponseEntity<CommonResponseDTO> updateUser(@RequestParam(value = "realmName") String realmName,
                                                         @RequestParam(value = "userId") String userId,
                                                         @RequestBody UserRequestDTO user) {
+        log.info("REST Request - updateUser: realmName={}, userId={}, username={}", realmName, userId, user.getUsername());
         return ResponseEntity.ok(userService.updateUser(realmName, userId, user));
     }
 
     @PostMapping(value = "/assign-permissions")
     public ResponseEntity<CommonResponseDTO> assignClientRoles(@RequestBody PermissionRequest permissionRequest) {
+        log.info("REST Request - assignClientRoles: realm={}, username={}, client={}", 
+                permissionRequest.getRealmName(), permissionRequest.getUsername(), permissionRequest.getClientId());
         return ResponseEntity.ok(userService.assignClientRoles(permissionRequest));
     }
 
@@ -46,12 +53,21 @@ public class UserController {
     public ResponseEntity<CommonResponseDTO> updateCredential(@RequestParam(value = "realmName") String realmName,
                                                               @RequestParam(value = "userId") String userId,
                                                               @RequestBody CredentialRequestDTO credentialRequest) {
+        log.info("REST Request - updateCredential: realmName={}, userId={}", realmName, userId);
         return ResponseEntity.ok(userService.updateCredential(realmName, userId, credentialRequest));
     }
 
     @DeleteMapping(value = "/credential/delete")
     public ResponseEntity<CommonResponseDTO> deleteCredential(@RequestParam(value = "realmName") String realmName,
                                                               @RequestParam(value = "userId") String userId) {
+        log.info("REST Request - deleteCredential: realmName={}, userId={}", realmName, userId);
         return ResponseEntity.ok(userService.deleteCredential(realmName, userId));
+    }
+
+    @DeleteMapping(value = "/delete")
+    public ResponseEntity<CommonResponseDTO> deleteUser(@RequestParam(value = "realmName") String realmName,
+                                                        @RequestParam(value = "username") String username) {
+        log.info("REST Request - deleteUser: realmName={}, username={}", realmName, username);
+        return ResponseEntity.ok(userService.deleteUser(realmName, username));
     }
 }

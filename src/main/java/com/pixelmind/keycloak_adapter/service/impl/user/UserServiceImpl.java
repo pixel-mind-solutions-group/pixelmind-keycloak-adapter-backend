@@ -353,4 +353,37 @@ public class UserServiceImpl implements UserService {
             throw new BaseException(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected error: " + e.getMessage());
         }
     }
+
+    @Override
+    public CommonResponseDTO deleteUser(String realmName, String username) {
+        try {
+            List<UserRepresentation> users = keycloak
+                    .realm(realmName)
+                    .users()
+                    .search(username, true); // exact match
+
+            if (users == null || users.isEmpty()) {
+                log.warn("User not found in Keycloak: {}, skipping deletion", username);
+                return new CommonResponseDTO(
+                        HttpStatus.OK.value(),
+                        null,
+                        "User not found in Keycloak, skipped deletion: " + username
+                );
+            }
+
+            String userId = users.get(0).getId();
+            keycloak.realm(realmName).users().get(userId).remove();
+
+            return new CommonResponseDTO(
+                    HttpStatus.OK.value(),
+                    null,
+                    "User deleted successfully from Keycloak: " + username
+            );
+        } catch (BaseException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error occurred during user deletion: {}", e.getMessage());
+            throw new BaseException(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected error occurred during user deletion: " + e.getMessage());
+        }
+    }
 }

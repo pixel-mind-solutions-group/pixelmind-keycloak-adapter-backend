@@ -30,6 +30,7 @@ public class ClientServiceImpl implements ClientService {
     // ── Create Client ─────────────────────────────────────────────────────────
     @Override
     public CommonResponseDTO createClient(String realmName, ClientRequestDTO clientRequest) {
+        log.info("ClientServiceImpl => createClient: realmName={}, request={}", realmName, clientRequest);
         String clientUUID = null;
         try {
             // Step 1: Check if client already exists
@@ -113,6 +114,7 @@ public class ClientServiceImpl implements ClientService {
     // ── Update Client ─────────────────────────────────────────────────────────
     @Override
     public CommonResponseDTO updateClient(String realmName, String clientId, ClientRequestDTO clientRequest) {
+        log.info("ClientServiceImpl => updateClient: realmName={}, clientId={}, request={}", realmName, clientId, clientRequest);
         try {
             // Step 1: Find client UUID by clientId
             ClientRepresentation existing = keycloak

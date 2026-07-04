@@ -3,6 +3,7 @@ package com.pixelmind.keycloak_adapter.mapper.realm;
 import com.pixelmind.keycloak_adapter.dto.realm.RealmResponseDTO;
 import com.pixelmind.keycloak_adapter.mapper.client.ClientMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.RealmRepresentation;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 @Component
 public class RealmMapper {
@@ -19,6 +21,7 @@ public class RealmMapper {
     private final ClientMapper clientMapper;
 
     public RealmResponseDTO toRealmResponseDTO(RealmRepresentation realm) {
+        log.debug("Mapping RealmRepresentation to RealmResponseDTO: {}", realm != null ? realm.getRealm() : "null");
         if (realm == null) {
             return null;
         }
