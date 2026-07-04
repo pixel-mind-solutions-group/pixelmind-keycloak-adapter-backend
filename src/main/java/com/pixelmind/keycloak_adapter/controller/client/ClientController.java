@@ -2,6 +2,7 @@ package com.pixelmind.keycloak_adapter.controller.client;
 
 import com.pixelmind.keycloak_adapter.dto.CommonResponseDTO;
 import com.pixelmind.keycloak_adapter.dto.client.ClientRequestDTO;
+import com.pixelmind.keycloak_adapter.dto.client.ApiPermissionRequestDTO;
 import com.pixelmind.keycloak_adapter.service.client.ClientService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,5 +30,19 @@ public class ClientController {
             @PathVariable String clientId,
             @RequestBody ClientRequestDTO clientRequest) {
         return ResponseEntity.ok(clientService.updateClient(realmName, clientId, clientRequest));
+    }
+
+    @PostMapping(value = "/api-permissions/create")
+    public ResponseEntity<CommonResponseDTO> createApiPermissions(
+            @RequestBody ApiPermissionRequestDTO apiPermissionRequest) {
+        return ResponseEntity.ok(clientService.createApiPermissions(apiPermissionRequest));
+    }
+
+    @DeleteMapping(value = "/api-permissions/delete")
+    public ResponseEntity<CommonResponseDTO> deleteApiPermission(
+            @RequestParam(value = "realmInternalUUid") String realmInternalUUid,
+            @RequestParam(value = "internalApplicationUuid") String internalApplicationUuid,
+            @RequestParam(value = "apiPermissionName") String apiPermissionName) {
+        return ResponseEntity.ok(clientService.deleteApiPermission(realmInternalUUid, internalApplicationUuid, apiPermissionName));
     }
 }

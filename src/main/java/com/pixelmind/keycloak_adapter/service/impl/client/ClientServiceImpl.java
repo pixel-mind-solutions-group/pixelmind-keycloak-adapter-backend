@@ -2,6 +2,7 @@ package com.pixelmind.keycloak_adapter.service.impl.client;
 
 import com.pixelmind.keycloak_adapter.dto.CommonResponseDTO;
 import com.pixelmind.keycloak_adapter.dto.client.ClientRequestDTO;
+import com.pixelmind.keycloak_adapter.dto.client.ApiPermissionRequestDTO;
 import com.pixelmind.keycloak_adapter.service.client.ClientService;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -10,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.RealmRepresentation;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -206,6 +209,115 @@ public class ClientServiceImpl implements ClientService {
             }
         } catch (Exception e) {
             log.error("Rollback FAILED — manually delete clientUUID: {} in realm: {}", clientUUID, realmName);
+        }
+    }
+
+    @Override
+    public CommonResponseDTO createApiPermissions(ApiPermissionRequestDTO request) {
+        log.info("ClientServiceImpl => createApiPermissions accessed. realmInternalUUid: {}, internalApplicationUuid: {}, permissions: {}",
+                request.getRealmInternalUUid(), request.getInternalApplicationUuid(), request.getApiPermisisonName());
+
+        try {
+            // Find the realm name using the realmInternalUUid
+            String realmName = keycloak.realms().findAll().stream()
+                    .filter(r -> r.getId().equals(request.getRealmInternalUUid()))
+                    .map(RealmRepresentation::getRealm)
+                    .findFirst()
+                    .orElseThrow(() -> new NotFoundException("Realm not found for internal UUID: " + request.getRealmInternalUUid()));
+
+            // Fetch the client roles currently assigned to this application (client) in Keycloak
+            List<RoleRepresentation> existingRoles = keycloak.realm(realmName)
+                    .clients()
+                    .get(request.getInternalApplicationUuid())
+                    .roles()
+                    .list();
+
+            // Create role representations for each requested API permission that doesn't exist yet
+            if (request.getApiPermisisonName() != null) {
+                for (String permissionName : request.getApiPermisisonName()) {
+                    boolean roleExists = existingRoles.stream()
+                            .anyMatch(role -> role.getName().equals(permissionName));
+
+                    if (!roleExists) {
+                        RoleRepresentation role = new RoleRepresentation();
+                        role.setName(permissionName);
+                        role.setClientRole(true);
+                        
+                        keycloak.realm(realmName)
+                                .clients()
+                                .get(request.getInternalApplicationUuid())
+                                .roles()
+                                .create(role);
+                        log.info("Successfully created client role: {} in realm: {}, client UUID: {}", 
+                                permissionName, realmName, request.getInternalApplicationUuid());
+                    }
+                }
+            }
+
+            return new CommonResponseDTO(
+                    HttpStatus.CREATED.value(),
+                    null,
+                    "API permissions registered in Keycloak successfully"
+            );
+
+        } catch (NotFoundException e) {
+            log.error("NotFoundException during API permission registration: {}", e.getMessage());
+            return new CommonResponseDTO(
+                    HttpStatus.NOT_FOUND.value(),
+                    null,
+                    e.getMessage()
+            );
+        } catch (Exception e) {
+            log.error("Unexpected error during API permission registration in Keycloak: {}", e.getMessage());
+            return new CommonResponseDTO(
+                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    null,
+                    "Failed to register API permissions in Keycloak: " + e.getMessage()
+            );
+        }
+    }
+
+    @Override
+    public CommonResponseDTO deleteApiPermission(String realmInternalUUid, String internalApplicationUuid, String apiPermissionName) {
+        log.info("ClientServiceImpl => deleteApiPermission accessed. realmInternalUUid: {}, internalApplicationUuid: {}, permission: {}",
+                realmInternalUUid, internalApplicationUuid, apiPermissionName);
+        try {
+            // Find the realm name using the realmInternalUUid
+            String realmName = keycloak.realms().findAll().stream()
+                    .filter(r -> r.getId().equals(realmInternalUUid))
+                    .map(RealmRepresentation::getRealm)
+                    .findFirst()
+                    .orElseThrow(() -> new NotFoundException("Realm not found for internal UUID: " + realmInternalUUid));
+
+            // Delete the client role from Keycloak
+            keycloak.realm(realmName)
+                    .clients()
+                    .get(internalApplicationUuid)
+                    .roles()
+                    .deleteRole(apiPermissionName);
+
+            log.info("Successfully deleted client role: {} in realm: {}, client UUID: {}", 
+                    apiPermissionName, realmName, internalApplicationUuid);
+
+            return new CommonResponseDTO(
+                    HttpStatus.OK.value(),
+                    null,
+                    "API permission deleted from Keycloak successfully"
+            );
+        } catch (NotFoundException e) {
+            log.error("NotFoundException during API permission deletion: {}", e.getMessage());
+            return new CommonResponseDTO(
+                    HttpStatus.NOT_FOUND.value(),
+                    null,
+                    e.getMessage()
+            );
+        } catch (Exception e) {
+            log.error("Unexpected error during API permission deletion in Keycloak: {}", e.getMessage());
+            return new CommonResponseDTO(
+                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    null,
+                    "Failed to delete API permission in Keycloak: " + e.getMessage()
+            );
         }
     }
 }
