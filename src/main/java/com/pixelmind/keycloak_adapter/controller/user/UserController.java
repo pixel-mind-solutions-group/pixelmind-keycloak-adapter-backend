@@ -24,6 +24,12 @@ public class UserController {
         return ResponseEntity.ok(userService.createUser(realmName, user));
     }
 
+    @PostMapping(value = "/sync")
+    public ResponseEntity<CommonResponseDTO> syncUser(@RequestParam(value = "realmName") String realmName,
+                                                      @RequestBody UserRequestDTO user) {
+        return ResponseEntity.ok(userService.syncUser(realmName, user));
+    }
+
     @PutMapping(value = "/update")
     public ResponseEntity<CommonResponseDTO> updateUser(@RequestParam(value = "realmName") String realmName,
                                                         @RequestParam(value = "userId") String userId,

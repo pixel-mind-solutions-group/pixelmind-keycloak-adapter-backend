@@ -14,4 +14,5 @@ public class UserRequestDTO {
     private boolean temporary;
     private boolean enabled;
     private boolean emailVerified;
+    private String userRole;
 }

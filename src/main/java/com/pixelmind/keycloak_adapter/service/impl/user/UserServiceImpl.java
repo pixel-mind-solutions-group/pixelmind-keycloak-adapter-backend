@@ -56,11 +56,62 @@ public class UserServiceImpl implements UserService {
         String locationHeader = response.getHeaderString("Location");
         String userId = locationHeader.substring(locationHeader.lastIndexOf("/") + 1);
 
+        // ── Step 5: Assign Realm Role to User ──────────────────────
+        if (userRequest.getUserRole() != null && !userRequest.getUserRole().trim().isEmpty()) {
+            try {
+                RoleRepresentation roleRepresentation = keycloak
+                        .realm(realmName)
+                        .roles()
+                        .get(userRequest.getUserRole())
+                        .toRepresentation();
+
+                keycloak.realm(realmName)
+                        .users()
+                        .get(userId)
+                        .roles()
+                        .realmLevel()
+                        .add(List.of(roleRepresentation));
+            } catch (jakarta.ws.rs.NotFoundException e) {
+                log.warn("Role not found in Keycloak: {}, skipping mapping", userRequest.getUserRole());
+            } catch (jakarta.ws.rs.WebApplicationException e) {
+                if (e.getResponse() != null && e.getResponse().getStatus() == 404) {
+                    log.warn("Role not found in Keycloak (404 WebApplicationException): {}, skipping mapping", userRequest.getUserRole());
+                } else {
+                    log.error("Failed to map role {} to user {}: {}", userRequest.getUserRole(), userId, e.getMessage());
+                    rollbackUserCreation(realmName, userId);
+                    throw new BaseException(HttpStatus.BAD_REQUEST.value(), "Failed to map role to user: " + e.getMessage());
+                }
+            } catch (Exception e) {
+                if (e.getMessage() != null && (e.getMessage().contains("404") || e.getMessage().toLowerCase().contains("not found"))) {
+                    log.warn("Role not found in Keycloak (Exception): {}, skipping mapping", userRequest.getUserRole());
+                } else {
+                    log.error("Failed to map role {} to user {}: {}", userRequest.getUserRole(), userId, e.getMessage());
+                    rollbackUserCreation(realmName, userId);
+                    throw new BaseException(HttpStatus.BAD_REQUEST.value(), "Failed to map role to user: " + e.getMessage());
+                }
+            }
+        }
+
         return new CommonResponseDTO(
                 HttpStatus.CREATED.value(),
                 "USER ID: " + userId,
                 "User created successfully"
         );
+    }
+
+    @Override
+    public CommonResponseDTO syncUser(String realmName, UserRequestDTO userRequest) {
+        List<UserRepresentation> existingUsers = keycloak
+                .realm(realmName)
+                .users()
+                .search(userRequest.getUsername(), true); // exact match
+
+        if (existingUsers == null || existingUsers.isEmpty()) {
+            return createUser(realmName, userRequest);
+        } else {
+            String userId = existingUsers.get(0).getId();
+            return updateUser(realmName, userId, userRequest);
+        }
     }
 
     @Override
@@ -87,6 +138,49 @@ public class UserServiceImpl implements UserService {
 
         // ── Step 3: Apply user update ─────────────────────────────
         userResource.update(userMapper.toUserRepresentation(existingUser, userRequest));
+
+        // ── Step 4: Update Realm Role mapping ──────────────────────
+        if (userRequest.getUserRole() != null && !userRequest.getUserRole().trim().isEmpty()) {
+            try {
+                RoleMappingResource roleMappingResource = keycloak
+                        .realm(realmName)
+                        .users()
+                        .get(userId)
+                        .roles();
+
+                List<RoleRepresentation> existingRealmRoles = roleMappingResource
+                        .realmLevel()
+                        .listAll();
+
+                if (existingRealmRoles != null && !existingRealmRoles.isEmpty()) {
+                    roleMappingResource.realmLevel().remove(existingRealmRoles);
+                }
+
+                RoleRepresentation newRole = keycloak
+                        .realm(realmName)
+                        .roles()
+                        .get(userRequest.getUserRole())
+                        .toRepresentation();
+
+                roleMappingResource.realmLevel().add(List.of(newRole));
+            } catch (jakarta.ws.rs.NotFoundException e) {
+                log.warn("Role not found in Keycloak: {}, skipping mapping", userRequest.getUserRole());
+            } catch (jakarta.ws.rs.WebApplicationException e) {
+                if (e.getResponse() != null && e.getResponse().getStatus() == 404) {
+                    log.warn("Role not found in Keycloak (404 WebApplicationException): {}, skipping mapping", userRequest.getUserRole());
+                } else {
+                    log.error("Failed to update role mapping for user {}: {}", userId, e.getMessage());
+                    throw new BaseException(HttpStatus.BAD_REQUEST.value(), "Failed to update role mapping for user: " + e.getMessage());
+                }
+            } catch (Exception e) {
+                if (e.getMessage() != null && (e.getMessage().contains("404") || e.getMessage().toLowerCase().contains("not found"))) {
+                    log.warn("Role not found in Keycloak (Exception): {}, skipping mapping", userRequest.getUserRole());
+                } else {
+                    log.error("Failed to update role mapping for user {}: {}", userId, e.getMessage());
+                    throw new BaseException(HttpStatus.BAD_REQUEST.value(), "Failed to update role mapping for user: " + e.getMessage());
+                }
+            }
+        }
 
         return new CommonResponseDTO(
                 HttpStatus.OK.value(),
@@ -138,8 +232,8 @@ public class UserServiceImpl implements UserService {
                 .filter(role -> permissionRequest.getPermissions().contains(role.getName()))
                 .toList();
 
-        if (rolesToAssign.isEmpty()) {
-            throw new NotFoundException("None of the provided roles found in client: " + permissionRequest.getClientId());
+        if (rolesToAssign.isEmpty() && !permissionRequest.getPermissions().isEmpty()) {
+            throw new BaseException(404, "None of the provided roles found in client: " + permissionRequest.getClientId());
         }
 
         List<UserRepresentation> users = keycloak
@@ -148,7 +242,7 @@ public class UserServiceImpl implements UserService {
                 .search(permissionRequest.getUsername(), true); // exact match
 
         if (users == null || users.isEmpty()) {
-            throw new NotFoundException("User not found");
+            throw new BaseException(404, "User not found inside keycloak: " + permissionRequest.getUsername());
         }
 
         // Usually username is unique → take first
@@ -172,12 +266,14 @@ public class UserServiceImpl implements UserService {
         }
 
         // Step 4: Assign filtered roles to the user
-        keycloak.realm(permissionRequest.getRealmName())
-                .users()
-                .get(userId)
-                .roles()
-                .clientLevel(clientUUID)
-                .add(rolesToAssign);
+        if (!rolesToAssign.isEmpty()) {
+            keycloak.realm(permissionRequest.getRealmName())
+                    .users()
+                    .get(userId)
+                    .roles()
+                    .clientLevel(clientUUID)
+                    .add(rolesToAssign);
+        }
 
         return new CommonResponseDTO(
                 HttpStatus.OK.value(),

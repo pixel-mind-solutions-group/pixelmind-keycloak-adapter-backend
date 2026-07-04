@@ -9,6 +9,8 @@ public interface UserService {
 
     CommonResponseDTO createUser(String realmName, UserRequestDTO user);
 
+    CommonResponseDTO syncUser(String realmName, UserRequestDTO user);
+
     CommonResponseDTO updateUser(String realmName, String userId, UserRequestDTO user);
 
     CommonResponseDTO updateCredential(String realmName, String userId, CredentialRequestDTO credentialRequest);
